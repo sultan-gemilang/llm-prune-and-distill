@@ -6,3 +6,5 @@ sentencepiece
 matplotlib
 huggingface-hub
 lm-eval
+langdetect
+immutabledict
