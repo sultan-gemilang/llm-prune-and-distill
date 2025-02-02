@@ -169,3 +169,17 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+#Offload folder for model
+offload
+
+#Benchmark results
+benchmarks/results/ifeval/*
+!benchmarks/results/ifeval/.gitkeep
+
+benchmarks/results/mmlu/*
+!benchmarks/results/mmlu/.gitkeep
+
+benchmarks/results/ppl/*
+!benchmarks/results/ppl/.gitkeep
+
