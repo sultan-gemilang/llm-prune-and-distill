@@ -356,7 +356,11 @@ def main():
             #m.head_dim = m.q_proj.out_features // m.num_heads
             if not _is_gqa:
                 m.num_key_value_heads = m.num_heads
-            m.num_key_value_groups = m.num_heads // m.num_key_value_heads
+                
+            if '3.2' in args.model:
+                m.num_key_value_groups = m.num_heads // m.config.num_key_value_heads
+            else:
+                m.num_key_value_groups = m.num_heads // m.num_key_value_heads
         elif name.endswith("mlp"):
             if hasattr(m, "gate_proj"):
                 m.hidden_size = m.gate_proj.in_features
