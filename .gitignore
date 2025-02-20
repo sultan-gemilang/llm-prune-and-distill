@@ -183,3 +183,5 @@ benchmarks/results/mmlu/*
 benchmarks/results/ppl/*
 !benchmarks/results/ppl/.gitkeep
 
+# notes
+notes.txt
