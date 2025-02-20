@@ -16,7 +16,7 @@
 import argparse
 
 from datasets import DatasetDict, concatenate_datasets
-from transformers import AutoTokenizer # LlamaTokenizer
+from transformers import AutoTokenizer, LlamaTokenizer
 
 from data_utils import CQADatasetLoader, SVAMPDatasetLoader, ESNLIDatasetLoader, ANLI1DatasetLoader, ASDivDatasetLoader
 from metrics import compute_text_acc, compute_equation_acc, compute_metrics_text, compute_metrics_equation, compute_metrics_text_aux, compute_metrics_equation_aux
@@ -129,7 +129,7 @@ def run(args):
     if "t5" in args.from_pretrained:
         tokenizer = AutoTokenizer.from_pretrained(args.from_pretrained)
     elif "llama" in args.from_pretrained:
-        tokenizer = AutoTokenizer.from_pretrained(args.from_pretrained)
+        tokenizer = LlamaTokenizer.from_pretrained(args.from_pretrained)
     else:
         print("Tokenizer doesn't recognize model's name. Available tokenizers are AutoTokenizer for T5 and LlamaTokenizer for LLaMA")
 
