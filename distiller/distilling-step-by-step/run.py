@@ -133,13 +133,13 @@ def run(args):
     elif any(model in args.from_pretrained for model in ["llama2", "llama3", "t5"]): # for llama2, llama3, and t5
         print(f"Model: {args.from_pretrained}")
         print("Tokenizer: AutoTokenizer")
-        tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
+        tokenizer = AutoTokenizer.from_pretrained(args.from_pretrained)
     else:
         print("Tokenizer doesn't recognize model's name. Available tokenizers are LlamaTokenizer for llama-7b and AutoTokenizer for llama2, llama3, and t5")
 
     # assign pad token
     if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        tokenizer.pad_token = tokenizer.eos_token
 
     if 'nli' in args.dataset:
         datasets = datasets.map(
