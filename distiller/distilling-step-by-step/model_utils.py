@@ -52,6 +52,8 @@ class TaskPrefixTrainer(Seq2SeqTrainer):
         print("Input expl:", inputs['expl'].keys())
         print("Max token ID (pred):", inputs['pred']['input_ids'].max().item())
         print("Max token ID (expl):", inputs['expl']['input_ids'].max().item())
+        print("Negative token IDs in pred:", (inputs['pred']['input_ids'] < 0).any().item())
+        print("Negative token IDs in expl:", (inputs['expl']['input_ids'] < 0).any().item())
 
         pred_outputs = model(**inputs['pred'])
         expl_outputs = model(**inputs['expl'])
