@@ -133,7 +133,7 @@ def run(args):
     elif any(model in args.from_pretrained for model in ["llama2", "llama3", "t5"]): # for llama2, llama3, and t5
         print(f"Model: {args.from_pretrained}")
         print("Tokenizer: AutoTokenizer")
-        tokenizer = AutoTokenizer.from_pretrained(args.from_pretrained)
+        tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
     else:
         print("Tokenizer doesn't recognize model's name. Available tokenizers are LlamaTokenizer for llama-7b and AutoTokenizer for llama2, llama3, and t5")
 
