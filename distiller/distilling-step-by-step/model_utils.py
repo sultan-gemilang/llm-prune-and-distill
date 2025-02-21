@@ -56,6 +56,8 @@ class TaskPrefixTrainer(Seq2SeqTrainer):
         print("Negative token IDs in expl:", (inputs['expl']['input_ids'] < 0).any().item())
         print("Input pred shape:", inputs['pred']['input_ids'].shape)
         print("Target labels shape:", inputs['pred']['labels'].shape)
+        print("First input_ids:", inputs['pred']['input_ids'][0])
+        print("First labels:", inputs['pred']['labels'][0])
 
         pred_outputs = model(**inputs['pred'])
         expl_outputs = model(**inputs['expl'])
