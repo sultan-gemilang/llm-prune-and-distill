@@ -137,6 +137,10 @@ def run(args):
     else:
         print("Tokenizer doesn't recognize model's name. Available tokenizers are LlamaTokenizer for llama-7b and AutoTokenizer for llama2, llama3, and t5")
 
+    # assign pad token
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+
     if 'nli' in args.dataset:
         datasets = datasets.map(
             lambda example: {'input': tokenizer.eos_token.join([example['premise'], example['hypothesis']])},
