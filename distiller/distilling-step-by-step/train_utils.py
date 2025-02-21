@@ -110,7 +110,7 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
         if "t5" in args.from_pretrained:
             data_collator = TaskPrefixDataCollatorT5(tokenizer=tokenizer, model=model)
         elif "llama" in args.from_pretrained:
-            data_collator = TaskPrefixDataCollatorLlama(tokenizer=tokenizer)
+            data_collator = TaskPrefixDataCollatorLlama(tokenizer=tokenizer, mlm=False)
         else:
             raise ValueError
     elif args.model_type == 'standard':
