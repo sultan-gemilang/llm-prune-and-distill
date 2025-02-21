@@ -47,6 +47,10 @@ class TaskPrefixTrainer(Seq2SeqTrainer):
 
 
     def compute_loss(self, model, inputs, return_outputs=False):
+        # debug
+        print("Input pred:", inputs['pred'].keys())
+        print("Input expl:", inputs['expl'].keys())
+
         pred_outputs = model(**inputs['pred'])
         expl_outputs = model(**inputs['expl'])
 
