@@ -126,12 +126,12 @@ def run(args):
 
 
     #### Prepare datasets Prepare data for training
-    if "t5" in args.from_pretrained:
+    if "llama-7b" in args.from_pretrained: # for llama-7b from decapoda-research
         tokenizer = AutoTokenizer.from_pretrained(args.from_pretrained)
-    elif "llama" in args.from_pretrained:
+    elif any(model in args.from_pretrained for model in [["llama2", "llama3", "t5"]]): # for llama2, llama3, and t5
         tokenizer = LlamaTokenizer.from_pretrained(args.from_pretrained)
     else:
-        print("Tokenizer doesn't recognize model's name. Available tokenizers are AutoTokenizer for T5 and LlamaTokenizer for LLaMA")
+        print("Tokenizer doesn't recognize model's name. Available tokenizers are LlamaTokenizer for llama-7b and AutoTokenizer for llama2, llama3, and t5")
 
     if 'nli' in args.dataset:
         datasets = datasets.map(
