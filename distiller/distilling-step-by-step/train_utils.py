@@ -17,12 +17,12 @@ import os
 import shutil
 import logging
 
-from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
+from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer, TrainingArguments, Trainer
 from transformers import T5ForConditionalGeneration, AutoModelForCausalLM
-from transformers import DataCollatorForSeq2Seq
+from transformers import DataCollatorForSeq2Seq, DataCollatorForLanguageModeling
 from transformers.trainer_utils import set_seed
 
-from model_utils import TaskPrefixDataCollator, TaskPrefixTrainer
+from model_utils import TaskPrefixDataCollatorT5, TaskPrefixTrainerT5, TaskPrefixDataCollatorLlama, TaskPrefixTrainerLlama
 
 
 def get_config_dir(args):
@@ -39,7 +39,7 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
         print("Model func: AutoModelForCausalLM")
         model = AutoModelForCausalLM.from_pretrained(args.from_pretrained)
     else:
-        print("Doesn't recognize model's name. Check model instance in train_and_evaluate()")
+        print("Doesn't recognize model's name. Check model's instance in train_and_evaluate()")
 
     if args.parallelize:
         model.parallelize()
@@ -59,36 +59,69 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
         logging.info('Found existing ckpt directory. Deleted the old directory for the latest run.')
         shutil.rmtree(output_dir)
 
-    training_args = Seq2SeqTrainingArguments(
-        output_dir,
-        remove_unused_columns = False,
-        evaluation_strategy = 'steps',
-        eval_steps=args.eval_steps,
-        save_strategy='no',
-        save_steps=args.eval_steps,
-        logging_dir=logging_dir,
-        logging_strategy=logging_strategy,
-        logging_steps=args.eval_steps,
-        max_steps=args.max_steps,
-        learning_rate=args.lr,
-        gradient_accumulation_steps=args.grad_steps,
-        per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.batch_size,
-        predict_with_generate=True,
-        seed=run,
-        local_rank=args.local_rank,
-        bf16=args.bf16,
-        generation_max_length=args.gen_max_len,
-        prediction_loss_only=False,
-    )
-
-    if args.model_type == 'task_prefix':
-        data_collator = TaskPrefixDataCollator(tokenizer=tokenizer, model=model)
-    elif args.model_type == 'standard':
-        data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
+    if "t5" in args.from_pretrained:
+        training_args = Seq2SeqTrainingArguments(
+            output_dir,
+            remove_unused_columns = False,
+            evaluation_strategy = 'steps',
+            eval_steps=args.eval_steps,
+            save_strategy='no',
+            save_steps=args.eval_steps,
+            logging_dir=logging_dir,
+            logging_strategy=logging_strategy,
+            logging_steps=args.eval_steps,
+            max_steps=args.max_steps,
+            learning_rate=args.lr,
+            gradient_accumulation_steps=args.grad_steps,
+            per_device_train_batch_size=args.batch_size,
+            per_device_eval_batch_size=args.batch_size,
+            predict_with_generate=True,
+            seed=run,
+            local_rank=args.local_rank,
+            bf16=args.bf16,
+            generation_max_length=args.gen_max_len,
+            prediction_loss_only=False,
+        )
+    elif "llama" in args.from_pretrained:
+        training_args = TrainingArguments(
+            output_dir,
+            remove_unused_columns=False,
+            evaluation_strategy='steps',
+            eval_steps=args.eval_steps,
+            save_strategy='no',
+            save_steps=args.eval_steps,
+            logging_dir=logging_dir,
+            logging_strategy=logging_strategy,
+            logging_steps=args.eval_steps,
+            max_steps=args.max_steps,
+            learning_rate=args.lr,
+            gradient_accumulation_steps=args.grad_steps,
+            per_device_train_batch_size=args.batch_size,
+            per_device_eval_batch_size=args.batch_size,
+            seed=run,
+            local_rank=args.local_rank,
+            bf16=args.bf16,
+            prediction_loss_only=False,  
+        )
     else:
         raise ValueError
 
+    if args.model_type == 'task_prefix':
+        if "t5" in args.from_pretrained:
+            data_collator = TaskPrefixDataCollatorT5(tokenizer=tokenizer, model=model)
+        elif "llama" in args.from_pretrained:
+            data_collator = TaskPrefixDataCollatorLlama(tokenizer=tokenizer, model=model)
+        else:
+            raise ValueError
+    elif args.model_type == 'standard':
+        if "t5" in args.from_pretrained:
+            data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
+        elif "llama" in args.from_pretrained:
+            data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, model=model, mlm=False)
+        else:
+            raise ValueError
+    else:
+        raise ValueError
 
     trainer_kwargs = {
         'alpha': args.alpha,
@@ -104,11 +137,21 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
     
 
     if args.model_type == 'task_prefix':
-        trainer = TaskPrefixTrainer(**trainer_kwargs)
+        if "t5" in args.from_pretrained:
+            trainer = TaskPrefixTrainerT5(**trainer_kwargs)
+        elif "llama" in args.from_pretrained:
+            trainer = TaskPrefixTrainerLlama(**trainer_kwargs)
+        else:
+            raise ValueError
     elif args.model_type == 'standard':
         trainer_kwargs.pop('alpha')
         trainer_kwargs.pop('output_rationale')
-        trainer = Seq2SeqTrainer(**trainer_kwargs)
+        if "t5" in args.from_pretrained:
+            trainer = Seq2SeqTrainer(**trainer_kwargs)
+        elif "llama" in args.from_pretrained:
+            trainer = Trainer(**trainer_kwargs)
+        else:
+            raise ValueError
     else:
         raise ValueError
     
