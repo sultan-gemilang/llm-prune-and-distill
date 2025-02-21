@@ -33,8 +33,10 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
     set_seed(run)
 
     if "t5" in args.from_pretrained:
+        print("Model func: T5ForConditionalGeneration")
         model = T5ForConditionalGeneration.from_pretrained(args.from_pretrained)
     elif "llama" in args.from_pretrained:
+        print("Model func: AutoModelForCausalLM")
         model = AutoModelForCausalLM.from_pretrained(args.from_pretrained)
     else:
         print("Doesn't recognize model's name. Check model instance in train_and_evaluate()")
