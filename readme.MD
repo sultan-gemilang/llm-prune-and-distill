@@ -7,6 +7,7 @@ Currently still WIP...
 ## Acknowledgements
 This repository contains work from other people. 
 - TinyLLM ([https://github.com/YikunHan42/TinyLLM](https://github.com/YikunHan42/TinyLLM)).
+- Distilling Step-by-Step ([https://github.com/google-research/distilling-step-by-step](https://github.com/google-research/distilling-step-by-step)).
 - Torch-Pruning ([https://github.com/VainF/Torch-Pruning](https://github.com/VainF/Torch-Pruning)).
 - lm-eval ([https://github.com/EleutherAI/lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness))
 
