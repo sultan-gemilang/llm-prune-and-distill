@@ -183,3 +183,8 @@ benchmarks/results/mmlu/*
 benchmarks/results/ppl/*
 !benchmarks/results/ppl/.gitkeep
 
+# Saved models folders
+saved_models
+
+# Test folder
+test
