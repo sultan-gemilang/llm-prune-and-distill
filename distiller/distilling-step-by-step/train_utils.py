@@ -17,6 +17,8 @@ import os
 import shutil
 import logging
 
+import torch
+
 from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer, TrainingArguments, Trainer
 from transformers import T5ForConditionalGeneration, AutoModelForCausalLM
 from transformers import DataCollatorForSeq2Seq, DataCollatorForLanguageModeling
@@ -34,10 +36,10 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
 
     if "t5" in args.from_pretrained:
         print("Model func: T5ForConditionalGeneration")
-        model = T5ForConditionalGeneration.from_pretrained(args.from_pretrained)
+        model = T5ForConditionalGeneration.from_pretrained(args.from_pretrained, device_map="auto", torch_dtype=torch.float16)
     elif "llama" in args.from_pretrained:
         print("Model func: AutoModelForCausalLM")
-        model = AutoModelForCausalLM.from_pretrained(args.from_pretrained)
+        model = AutoModelForCausalLM.from_pretrained(args.from_pretrained, device_map="auto", torch_dtype=torch.float16)
     else:
         print("Doesn't recognize model's name. Check model's instance in train_and_evaluate()")
 
@@ -81,6 +83,7 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
             bf16=args.bf16,
             generation_max_length=args.gen_max_len,
             prediction_loss_only=False,
+            fp16=True,
         )
     elif "llama" in args.from_pretrained:
         training_args = TrainingArguments(
@@ -101,7 +104,8 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
             seed=run,
             local_rank=args.local_rank,
             bf16=args.bf16,
-            prediction_loss_only=False,  
+            prediction_loss_only=False,
+            fp16=True,  
         )
     else:
         raise ValueError
