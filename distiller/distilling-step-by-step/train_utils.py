@@ -36,10 +36,10 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
 
     if "t5" in args.from_pretrained:
         print("Model func: T5ForConditionalGeneration")
-        model = T5ForConditionalGeneration.from_pretrained(args.from_pretrained, device_map="auto", torch_dtype=torch.float16)
+        model = T5ForConditionalGeneration.from_pretrained(args.from_pretrained, device_map="auto")
     elif "llama" in args.from_pretrained:
         print("Model func: AutoModelForCausalLM")
-        model = AutoModelForCausalLM.from_pretrained(args.from_pretrained, device_map="auto", torch_dtype=torch.float16)
+        model = AutoModelForCausalLM.from_pretrained(args.from_pretrained, device_map="auto")
     else:
         print("Doesn't recognize model's name. Check model's instance in train_and_evaluate()")
 
