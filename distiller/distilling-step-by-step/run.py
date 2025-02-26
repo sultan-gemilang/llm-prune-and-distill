@@ -165,16 +165,28 @@ def run(args):
 
                 return model_inputs
             elif "llama" in args.from_pretrained:
+                # Tokenisasi input
                 model_inputs = tokenizer(examples['input'], max_length=args.max_input_length, truncation=True, padding="max_length")
 
                 with tokenizer.as_target_tokenizer():
                     label_output_encodings = tokenizer(examples['label'], max_length=256, truncation=True, padding="max_length")
 
-                model_inputs['labels'] = label_output_encodings['input_ids']
+                # Pastikan panjang labels sesuai dengan input_ids
+                labels = label_output_encodings['input_ids']
+                if len(model_inputs['input_ids']) != len(model_inputs['attention_mask']):
+                    print("Error: Panjang input_ids dan attention_mask tidak sama")
+                    print("input_ids:", len(model_inputs['input_ids']))
+                    print("attention_mask:", len(model_inputs['attention_mask']))
 
-                model_inputs['input_ids'] = model_inputs['input_ids'][:-1]  # Hapus token terakhir untuk causal modeling
-                model_inputs['labels'] = model_inputs['labels'][1:]  # Geser label ke kiri
-                
+                if len(model_inputs['input_ids']) != len(labels):
+                    print("Error: Panjang input_ids dan labels tidak sama")
+                    print("input_ids:", len(model_inputs['input_ids']))
+                    print("labels:", len(labels))
+
+                # Shift labels untuk autoregressive modeling
+                model_inputs['labels'] = labels[1:]  # Geser ke kiri
+                model_inputs['input_ids'] = model_inputs['input_ids'][:-1]  # Hapus token terakhir
+
                 return model_inputs
             else:
                 raise ValueError
