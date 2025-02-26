@@ -105,8 +105,6 @@ class TaskPrefixTrainerLlama(Trainer):
         self.output_rationale = output_rationale
 
     def compute_loss(self, model, inputs, return_outputs=False):
-        print(inputs)
-        print(inputs['pred'])
         pred_outputs = model(**inputs['pred'])
         expl_outputs = model(**inputs['expl'])
 
@@ -124,6 +122,11 @@ class TaskPrefixTrainerLlama(Trainer):
         
         pred_outputs = super().prediction_step(model, inputs['pred'], prediction_loss_only=False, ignore_keys=ignore_keys)
         
+        if 'pred' not in inputs:
+            print("Warning: 'pred' not found in inputs during evaluation")
+            print("Current input structure:", inputs)
+            return None, None, None
+
         if self.output_rationale:
             expl_outputs = super().prediction_step(model, inputs['expl'], prediction_loss_only=False, ignore_keys=ignore_keys)
         else:
