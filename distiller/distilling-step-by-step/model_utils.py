@@ -105,7 +105,7 @@ class TaskPrefixTrainerLlama(Trainer):
         self.output_rationale = output_rationale
 
     def compute_loss(self, model, inputs, return_outputs=False):
-        print(**inputs)
+        print(inputs)
         pred_outputs = model(**inputs['pred'])
         expl_outputs = model(**inputs['expl'])
 
