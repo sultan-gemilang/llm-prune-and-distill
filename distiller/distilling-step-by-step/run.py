@@ -149,20 +149,49 @@ def run(args):
 
 
     if args.model_type == 'task_prefix' and args.llm is not None:
-        def tokenize_function(examples):
-            model_inputs = tokenizer(['predict: ' + text for text in examples['input']], max_length=args.max_input_length, truncation=True, padding="max_length")
-            expl_model_inputs = tokenizer(['explain: ' + text for text in examples['input']], max_length=args.max_input_length, truncation=True,  padding="max_length")
-            model_inputs['expl_input_ids'] = expl_model_inputs['input_ids']
-            model_inputs['expl_attention_mask'] = expl_model_inputs['attention_mask']
+        if "t5" in args.from_pretrained:
+            def tokenize_function(examples):
+                model_inputs = tokenizer(['predict: ' + text for text in examples['input']], max_length=args.max_input_length, truncation=True, padding="max_length")
+                expl_model_inputs = tokenizer(['explain: ' + text for text in examples['input']], max_length=args.max_input_length, truncation=True,  padding="max_length")
+                model_inputs['expl_input_ids'] = expl_model_inputs['input_ids']
+                model_inputs['expl_attention_mask'] = expl_model_inputs['attention_mask']
 
-            with tokenizer.as_target_tokenizer():
-                label_output_encodings = tokenizer(examples['label'], max_length=256, truncation=True, padding="max_length", return_tensors="pt")
-                rationale_output_encodings = tokenizer(examples['rationale'], max_length=256, truncation=True, padding="max_length", return_tensors="pt")
+                with tokenizer.as_target_tokenizer():
+                    label_output_encodings = tokenizer(examples['label'], max_length=256, truncation=True, padding="max_length", return_tensors="pt")
+                    rationale_output_encodings = tokenizer(examples['rationale'], max_length=256, truncation=True, padding="max_length", return_tensors="pt")
 
-            model_inputs['labels'] = label_output_encodings['input_ids']
-            model_inputs['aux_labels'] = rationale_output_encodings['input_ids']
+                model_inputs['labels'] = label_output_encodings['input_ids']
+                model_inputs['aux_labels'] = rationale_output_encodings['input_ids']
 
-            return model_inputs
+                return model_inputs
+        elif "llama" in args.from_pretrained:
+            def tokenize_function(examples):
+                # Format input and target for LLaMA
+                inputs = [f"Question: {ex} Explain:" for ex in examples['input']]
+                targets = [f"{rationale} Answer: {label}" for rationale, label in zip(examples['rationale'], examples['label'])]
+                
+                # Combine input and target for full sequence
+                combined = [i + t for i, t in zip(inputs, targets)]
+                tokenized = tokenizer(
+                    combined,
+                    max_length=args.max_input_length + args.gen_max_len,
+                    truncation=True,
+                    padding='max_length'
+                )
+                
+                # Tokenize inputs to determine input lengths
+                input_tokenized = tokenizer(inputs, max_length=args.max_input_length, truncation=True, padding='max_length')
+                input_lengths = [sum(attn) for attn in input_tokenized['attention_mask']]
+                
+                # Create labels by masking input part
+                labels = []
+                for input_len, ids in zip(input_lengths, tokenized['input_ids']):
+                    labels.append([-100] * input_len + ids[input_len:])
+                
+                tokenized['labels'] = labels
+                return tokenized
+        else:
+                raise ValueError
 
     elif args.model_type == 'standard':
         def tokenize_function(examples):
