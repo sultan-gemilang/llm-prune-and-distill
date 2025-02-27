@@ -47,8 +47,6 @@ class TaskPrefixTrainerT5(Seq2SeqTrainer):
 
 
     def compute_loss(self, model, inputs, return_outputs=False):
-        print(inputs)
-        print("████████████████████████████████████████████████████████████████████████████████████████████████")
         pred_outputs = model(**inputs['pred'])
         expl_outputs = model(**inputs['expl'])
 
@@ -104,10 +102,13 @@ class TaskPrefixTrainerLlama(Trainer):
 
 
     def compute_loss(self, model, inputs, return_outputs=False):
-        print(inputs)
-        print("████████████████████████████████████████████████████████████████████████████████████████████████")
-        pred_outputs = model(**inputs['pred'])
-        expl_outputs = model(**inputs['expl'])
+        if "pred" in inputs:
+            pred_outputs = model(**inputs['pred'])
+            expl_outputs = model(**inputs['expl'])
+        else:
+            inputs = {'pred': inputs}
+            pred_outputs = model(**inputs['pred'])
+            expl_outputs = model(**inputs['pred'])
 
         loss = self.alpha * pred_outputs.loss + (1. - self.alpha) * expl_outputs.loss
 
