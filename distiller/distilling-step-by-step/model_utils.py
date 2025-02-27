@@ -102,8 +102,12 @@ class TaskPrefixTrainerLlama(Trainer):
 
 
     def compute_loss(self, model, inputs, return_outputs=False):
-        pred_outputs = model(**inputs['pred'])
-        expl_outputs = model(**inputs['expl'])
+        if "pred" in inputs:
+            pred_outputs = model(**inputs['pred'])
+            expl_outputs = model(**inputs['expl'])
+        else:
+            pred_outputs = model(inputs)
+            expl_outputs = model(inputs)
 
         loss = self.alpha * pred_outputs.loss + (1. - self.alpha) * expl_outputs.loss
 
