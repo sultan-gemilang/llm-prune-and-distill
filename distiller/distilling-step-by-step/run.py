@@ -132,7 +132,7 @@ def run(args):
 
     if 'nli' in args.dataset:
         datasets = datasets.map(
-            lambda example: {'input': f"Premise: {example["premise"]}\nHypothesis: {example["hypothesis"]}"},
+            lambda example: {'input': f"Premise: {example['premise']}\nHypothesis: {example['hypothesis']}"},
             remove_columns=['premise', 'hypothesis'],
         )
 
