@@ -17,122 +17,46 @@ import pandas as pd
 import torch
 from typing import Any, Dict, List, Optional, Tuple, Union
 from torch import nn
-from transformers import DataCollatorForSeq2Seq, DataCollatorForLanguageModeling
-from transformers import Seq2SeqTrainer, Trainer
+from transformers import DataCollatorForLanguageModeling
+from transformers import Trainer
 
 
-"""T5 Multi-Task by Task Prefix
-"""
-class TaskPrefixDataCollatorT5(DataCollatorForSeq2Seq):
+class TaskPrefixDataCollator(DataCollatorForLanguageModeling):
+    def __init__(self, tokenizer, **kwargs):
+        super().__init__(tokenizer=tokenizer, **kwargs)
+        self.rat_token_id = tokenizer.convert_tokens_to_ids("<RAT>")
+        self.lab_token_id = tokenizer.convert_tokens_to_ids("<LAB>")
+
     def __call__(self, features, return_tensors=None):
-        features_df = pd.DataFrame(features)
-        pred_features = features_df.loc[:, ~features_df.columns.isin(['aux_labels', 'expl_input_ids', 'expl_attention_mask'])].to_dict('records')
-        expl_features = features_df.loc[:, ~features_df.columns.isin(['labels', 'input_ids', 'attention_mask'])].rename(
-            columns={'aux_labels': 'labels', 'expl_input_ids': 'input_ids', 'expl_attention_mask': 'attention_mask'}).to_dict('records')
+        batch = super().__call__(features, return_tensors)
+        batch["rationale_token_id"] = self.rat_token_id
+        batch["label_token_id"] = self.lab_token_id
+        return batch
 
-        pred_features = super().__call__(pred_features, return_tensors)
-        expl_features = super().__call__(expl_features, return_tensors)
-
-        return {
-            'pred': pred_features,
-            'expl': expl_features,
-        }
-
-
-class TaskPrefixTrainerT5(Seq2SeqTrainer):
-    def __init__(self, alpha, output_rationale, **kwargs):
-        super().__init__(**kwargs)
-        self.alpha = alpha
-        self.output_rationale = output_rationale
-
-
+class TaskPrefixTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
-        pred_outputs = model(**inputs['pred'])
-        expl_outputs = model(**inputs['expl'])
-
-        loss = self.alpha * pred_outputs.loss + (1. - self.alpha) * expl_outputs.loss
-
-        return (loss, {'pred': pred_outputs, 'expl': expl_outputs}) if return_outputs else loss
-
-
-    def prediction_step(
-        self,
-        model: nn.Module,
-        inputs: Dict[str, Union[torch.Tensor, Any]],
-        prediction_loss_only: bool,
-        ignore_keys: Optional[List[str]] = None
-    ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        # Get special token IDs from collator
+        rat_id = inputs["rationale_token_id"]
+        lab_id = inputs["label_token_id"]
         
-        pred_outputs = super().prediction_step(model, inputs['pred'], prediction_loss_only=False, ignore_keys=ignore_keys)
-        if self.output_rationale:
-            expl_outputs = super().prediction_step(model, inputs['expl'], prediction_loss_only=False, ignore_keys=ignore_keys)
-        else:
-            expl_outputs = pred_outputs # placeholder only
-
-        loss = self.alpha * pred_outputs[0]  + (1 - self.alpha) * expl_outputs[0]
-
-        return (
-            loss,
-            [pred_outputs[1], expl_outputs[1]],
-            [pred_outputs[2], expl_outputs[2]],
-        )
-
-"""Llama Multi-Task by Task Prefix
-"""
-class TaskPrefixDataCollatorLlama(DataCollatorForLanguageModeling):
-    def __call__(self, features, return_tensors=None):
-        features_df = pd.DataFrame(features)
-        pred_features = features_df.loc[:, ~features_df.columns.isin(['aux_labels', 'expl_input_ids', 'expl_attention_mask'])].to_dict('records')
-        expl_features = features_df.loc[:, ~features_df.columns.isin(['labels', 'input_ids', 'attention_mask'])].rename(
-            columns={'aux_labels': 'labels', 'expl_input_ids': 'input_ids', 'expl_attention_mask': 'attention_mask'}).to_dict('records')
-
-        pred_features = super().__call__(pred_features, return_tensors)
-        expl_features = super().__call__(expl_features, return_tensors)
-
-        return {
-            'pred': pred_features,
-            'expl': expl_features,
-        }
-    
-class TaskPrefixTrainerLlama(Trainer):
-    def __init__(self, alpha, output_rationale, **kwargs):
-        super().__init__(**kwargs)
-        self.alpha = alpha
-        self.output_rationale = output_rationale
-
-
-    def compute_loss(self, model, inputs, return_outputs=False):
-        if "pred" in inputs:
-            pred_outputs = model(**inputs['pred'])
-            expl_outputs = model(**inputs['expl'])
-        else:
-            inputs = {'pred': inputs}
-            pred_outputs = model(**inputs['pred'])
-            expl_outputs = model(**inputs['pred'])
-
-        loss = self.alpha * pred_outputs.loss + (1. - self.alpha) * expl_outputs.loss
-
-        return (loss, {'pred': pred_outputs, 'expl': expl_outputs}) if return_outputs else loss
-
-
-    def prediction_step(
-        self,
-        model: nn.Module,
-        inputs: Dict[str, Union[torch.Tensor, Any]],
-        prediction_loss_only: bool,
-        ignore_keys: Optional[List[str]] = None
-    ) -> Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        # Forward pass
+        outputs = model(**inputs)
+        logits = outputs.logits
         
-        pred_outputs = super().prediction_step(model, inputs['pred'], prediction_loss_only=False, ignore_keys=ignore_keys)
-        if self.output_rationale:
-            expl_outputs = super().prediction_step(model, inputs['expl'], prediction_loss_only=False, ignore_keys=ignore_keys)
-        else:
-            expl_outputs = pred_outputs # placeholder only
-
-        loss = self.alpha * pred_outputs[0]  + (1 - self.alpha) * expl_outputs[0]
-
-        return (
-            loss,
-            [pred_outputs[1], expl_outputs[1]],
-            [pred_outputs[2], expl_outputs[2]],
-        )
+        # Causal LM shift
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = inputs["input_ids"][..., 1:].contiguous()
+        
+        # Create masks
+        rationale_mask = (shift_labels == rat_id)
+        label_mask = (shift_labels == lab_id)
+        
+        # Compute losses
+        loss_fn = torch.nn.CrossEntropyLoss(reduction="none")
+        losses = loss_fn(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        
+        rationale_loss = losses[rationale_mask.view(-1)].mean()
+        label_loss = losses[label_mask.view(-1)].mean()
+        
+        total_loss = self.alpha * label_loss + (1 - self.alpha) * rationale_loss
+        return (total_loss, outputs) if return_outputs else total_loss  # Fixed 'outputs'

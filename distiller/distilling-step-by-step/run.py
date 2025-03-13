@@ -16,10 +16,10 @@
 import argparse
 
 from datasets import DatasetDict, concatenate_datasets
-from transformers import AutoTokenizer, LlamaTokenizer
+from transformers import AutoTokenizer
 
 from data_utils import CQADatasetLoader, SVAMPDatasetLoader, ESNLIDatasetLoader, ANLI1DatasetLoader, ASDivDatasetLoader
-from metrics import compute_text_acc, compute_equation_acc, compute_metrics_text, compute_metrics_equation, compute_metrics_text_aux, compute_metrics_equation_aux
+from metrics import compute_text_acc, compute_equation_acc, compute_metrics_text, compute_metrics_equation
 from train_utils import train_and_evaluate
 
 
@@ -126,85 +126,35 @@ def run(args):
 
 
     #### Prepare datasets Prepare data for training
-    if any(model in args.from_pretrained for model in ["llama-7b", "llama7b"]): # for llama-7b from decapoda-research
-        print(f"Model: {args.from_pretrained}")
-        print("Tokenizer func: LlamaTokenizer")
-        tokenizer = LlamaTokenizer.from_pretrained(args.from_pretrained)
-    elif any(model in args.from_pretrained for model in ["llama2", "llama-2", "llama3", "llama-3", "t5"]): # for llama2, llama3, and t5
-        print(f"Model: {args.from_pretrained}")
-        print("Tokenizer func: AutoTokenizer")
-        tokenizer = AutoTokenizer.from_pretrained(args.from_pretrained)
-    else:
-        print("Tokenizer doesn't recognize model's name. Available tokenizers are LlamaTokenizer for llama-7b and AutoTokenizer for llama2, llama3, and t5")
-
-    # assign pad token
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = AutoTokenizer.from_pretrained(args.from_pretrained)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.add_tokens(["<RAT>", "</RAT>", "<LAB>", "</LAB>"])
 
     if 'nli' in args.dataset:
         datasets = datasets.map(
-            lambda example: {'input': tokenizer.eos_token.join([example['premise'], example['hypothesis']])},
+            lambda example: {'input': f"Premise: {example["premise"]}\nHypothesis: {example["hypothesis"]}"},
             remove_columns=['premise', 'hypothesis'],
         )
 
 
     if args.model_type == 'task_prefix' and args.llm is not None:
-        if "t5" in args.from_pretrained:
-            def tokenize_function(examples):
-                model_inputs = tokenizer(['predict: ' + text for text in examples['input']], max_length=args.max_input_length, truncation=True, padding="max_length")
-                expl_model_inputs = tokenizer(['explain: ' + text for text in examples['input']], max_length=args.max_input_length, truncation=True,  padding="max_length")
-                model_inputs['expl_input_ids'] = expl_model_inputs['input_ids']
-                model_inputs['expl_attention_mask'] = expl_model_inputs['attention_mask']
+        def tokenize_function(examples):
+            combined_text = [
+                f"Input: {text}<RAT>{rationale}</RAT><LAB>{label}</LAB>"\
+                for text, rationale, label in zip(examples["input"], examples["rationale"], examples["label"])
+            ]
+            model_inputs = tokenizer(combined_text, max_length=args.max_input_length, truncation=True)
+            model_inputs["labels"] = model_inputs["input_ids"].copy()
 
-                with tokenizer.as_target_tokenizer():
-                    label_output_encodings = tokenizer(examples['label'], max_length=256, truncation=True, padding="max_length", return_tensors="pt")
-                    rationale_output_encodings = tokenizer(examples['rationale'], max_length=256, truncation=True, padding="max_length", return_tensors="pt")
-
-                model_inputs['labels'] = label_output_encodings['input_ids']
-                model_inputs['aux_labels'] = rationale_output_encodings['input_ids']
-
-                return model_inputs
-        elif "llama" in args.from_pretrained:
-            def tokenize_function(examples):
-                # Format input and target for LLaMA
-                inputs = [f"Question: {ex} Explain:" for ex in examples['input']]
-                targets = [f"{rationale} Answer: {label}" for rationale, label in zip(examples['rationale'], examples['label'])]
-                
-                # Combine input and target for full sequence
-                combined = [i + t for i, t in zip(inputs, targets)]
-                tokenized = tokenizer(
-                    combined,
-                    max_length=args.max_input_length + args.gen_max_len,
-                    truncation=True,
-                    padding='max_length'
-                )
-                
-                # Tokenize inputs to determine input lengths
-                input_tokenized = tokenizer(inputs, max_length=args.max_input_length, truncation=True, padding='max_length')
-                input_lengths = [sum(attn) for attn in input_tokenized['attention_mask']]
-                
-                # Create labels by masking input part
-                labels = []
-                for input_len, ids in zip(input_lengths, tokenized['input_ids']):
-                    labels.append([-100] * input_len + ids[input_len:])
-                
-                tokenized['labels'] = labels
-                return tokenized
-        else:
-                raise ValueError
-
+            return model_inputs
     elif args.model_type == 'standard':
         def tokenize_function(examples):
-            model_inputs = tokenizer(
-                examples['input'],
-                max_length=args.max_input_length,
-                truncation=True
-            )
-
-            with tokenizer.as_target_tokenizer():
-                label_output_encodings = tokenizer(examples['label'], max_length=256, truncation=True)
-
-            model_inputs['labels'] = label_output_encodings['input_ids']
+            combined_text = [
+                f"Input: {text}\nLabel: {label}"\
+                for text, label in zip(examples["input"], examples["label"])
+            ]
+            model_inputs = tokenizer(combined_text, max_length=args.max_input_length, truncation=True)
+            model_inputs["labels"] = model_inputs["input_ids"].copy()
 
             return model_inputs
 
@@ -228,9 +178,9 @@ def run(args):
 
     if args.model_type == 'standard':
         if args.dataset not in ['svamp', 'asdiv']:
-            compute_metrics = compute_metrics_text_aux(tokenizer)
+            compute_metrics = compute_metrics_text(tokenizer)
         else:
-            compute_metrics = compute_metrics_equation_aux(tokenizer)
+            compute_metrics = compute_metrics_equation(tokenizer)
 
     else:
         if args.dataset not in ['svamp', 'asdiv']:
@@ -253,7 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('--optimizer_name', type=str, default='AdamW')
     parser.add_argument('--lr', type=float, default=5e-5)
     parser.add_argument('--run', type=int, default=0)
-    parser.add_argument('--from_pretrained', type=str, default='google/t5-v1_1-base')
+    parser.add_argument('--from_pretrained', type=str, default='meta-llama/llama-3.2-1B')
     parser.add_argument('--label_type', type=str, default='gt')
     parser.add_argument('--llm', type=str, default='palm')
     parser.add_argument('--max_input_length', type=int, default=1024)
@@ -265,6 +215,7 @@ if __name__ == '__main__':
     parser.add_argument('--bf16', action='store_true')
     parser.add_argument('--no_log', action='store_true')
     parser.add_argument('--output_rationale', action='store_true')
+    parser.add_argument('--grad_checkpointing', action='store_true')
 
     args = parser.parse_args()
 
