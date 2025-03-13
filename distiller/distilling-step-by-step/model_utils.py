@@ -34,7 +34,11 @@ class TaskPrefixDataCollator(DataCollatorForLanguageModeling):
         return batch
 
 class TaskPrefixTrainer(Trainer):
-    def compute_loss(self, alpha, model, inputs, return_outputs=False):
+    def __init__(self, alpha=0.5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.alpha = alpha
+        
+    def compute_loss(self, model, inputs, return_outputs=False):
         # Get special token IDs from collator
         rat_id = inputs["rationale_token_id"]
         lab_id = inputs["label_token_id"]
@@ -58,5 +62,5 @@ class TaskPrefixTrainer(Trainer):
         rationale_loss = losses[rationale_mask.view(-1)].mean()
         label_loss = losses[label_mask.view(-1)].mean()
         
-        total_loss = alpha * label_loss + (1 - alpha) * rationale_loss
+        total_loss = self.alpha * label_loss + (1 - self.alpha) * rationale_loss
         return (total_loss, outputs) if return_outputs else total_loss  # Fixed 'outputs'
