@@ -68,7 +68,6 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
         gradient_accumulation_steps=args.grad_steps,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
-        predict_with_generate=True,
         seed=run,
         local_rank=args.local_rank,
         bf16=args.bf16,
