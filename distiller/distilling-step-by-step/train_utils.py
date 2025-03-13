@@ -74,7 +74,7 @@ def train_and_evaluate(args, run, tokenizer, tokenized_datasets, compute_metrics
     )
 
     if args.model_type == 'task_prefix':
-        data_collator = TaskPrefixDataCollator(tokenizer=tokenizer)
+        data_collator = TaskPrefixDataCollator(tokenizer=tokenizer, mlm=False)
     elif args.model_type == 'standard':
         data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, model=model)
     else:
